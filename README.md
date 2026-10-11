@@ -35,8 +35,14 @@ La conexión es directa entre los dos navegadores (P2P con WebRTC). El servidor 
 
 ## Controles
 
-- **Teclado:** ← → moverse · ↑ ↓ apuntar · mantener Espacio para cargar y soltar para disparar · Enter saltar · 1–4 armas · M ver el mapa entero.
+- **Teclado:** ← → moverse · ↑ ↓ apuntar · mantener Espacio para cargar y soltar para disparar · Enter saltar · 1–4 armas · C centrar la cámara · M ver el mapa entero.
 - **Móvil:** con los botones de debajo del campo.
+- **Mirar el mapa:** arrastra el campo con el dedo o con el ratón (cualquier botón). Zoom con la rueda o pellizcando. «Centrar» vuelve a seguir la acción; al disparar o cambiar de turno la cámara vuelve sola.
+
+## Personalización
+
+- **Skins:** en el menú eliges color, sombrero (gorra, vaquero, corona, vikingo, fiesta, pirata, chistera, cascos) y ojos. Tu rival ve tu skin en el online.
+- **Mapas:** Pradera, Desierto, Nieve, Volcán y Golosinas, cada uno con su cielo, texturas, decorados, clima y líquido. Lo elige quien crea la partida (o «Aleatorio»).
 
 | Arma | Cómo funciona |
 |---|---|
