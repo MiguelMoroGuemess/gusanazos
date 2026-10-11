@@ -53,6 +53,10 @@ La conexión es directa entre los dos navegadores (P2P con WebRTC). El servidor 
 
 **Daño:** todas las explosiones hacen más daño cuanto más cerca del centro pilles al gusano, y el impacto directo suma un 10 %. Caer desde muy alto también quita vida.
 
+**Movimiento limitado:** cada turno puedes recorrer una distancia máxima (barra «Mov.» arriba y bajo el gusano). Saltar gasta un trozo. Al disparar, si te queda poco, se rellena un mínimo para que siempre puedas huir.
+
+**Viento:** cambia cada turno (flecha y número de 0 a 10, y rachas que cruzan la pantalla). Desvía mucho la bazuca, un poco la granada mientras vuela y nada la dinamita ni la escopeta.
+
 **Tras disparar** aparece «¡Corre!» con una cuenta atrás: durante ese tiempo puedes moverte y saltar para ponerte a cubierto.
 
 ## Sonido

@@ -66,6 +66,14 @@ h1{font-family:var(--round);font-weight:800;font-size:1.65rem;margin:0;line-heig
 .wbar span{flex:1;display:flex}
 .wbar span:first-child{justify-content:flex-end}
 .wbar i{display:block;height:100%;background:#9fd7ff}
+.wind b{font-family:var(--round);font-size:.85rem;color:#9fd7ff;min-width:34px;font-variant-numeric:tabular-nums}
+/* Barra de movimiento restante del turno */
+.move{display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--muted)}
+.mbar{width:124px;height:7px;background:var(--panel-2);border-radius:99px;overflow:hidden}
+.mbar i{display:block;height:100%;background:#7ee08a;border-radius:99px;transition:width .1s}
+.move.low .mbar i{background:#ffcc4d}
+.move.empty .mbar i{background:#ff6b6b}
+.move.off{opacity:.35}
 /* Escenario */
 .stage{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#2a2350}
 canvas{display:block}
@@ -156,7 +164,8 @@ kbd{font-family:var(--body);font-size:.7rem;background:var(--panel-2);border:1px
     <div class="team t0"><span class="tn" id="tn0">Rojos</span><div class="tbar"><i id="tb0" style="width:100%"></i></div></div>
     <div class="mid">
       <span class="timer" id="timer">--</span>
-      <div class="wind" aria-label="Viento"><span>Viento</span><div class="wbar"><span><i id="wl"></i></span><span><i id="wr"></i></span></div></div>
+      <div class="wind" aria-label="Viento"><span>Viento</span><div class="wbar"><span><i id="wl"></i></span><span><i id="wr"></i></span></div><b id="windTxt">·</b></div>
+      <div class="move" id="moveBox" aria-label="Movimiento restante"><span>Mov.</span><div class="mbar"><i id="mvb"></i></div></div>
     </div>
     <div class="team t1"><span class="tn" id="tn1">Azules</span><div class="tbar"><i id="tb1" style="width:100%"></i></div></div>
   </div>
@@ -184,7 +193,7 @@ kbd{font-family:var(--body);font-size:.7rem;background:var(--panel-2);border:1px
       <button data-k="fire" type="button" class="fire">FUEGO</button>
     </div>
   </div>
-  <p class="help">Teclado: <kbd>←</kbd><kbd>→</kbd> moverse · <kbd>↑</kbd><kbd>↓</kbd> apuntar · mantén <kbd>Espacio</kbd> para cargar y suelta para disparar · <kbd>Enter</kbd> saltar · <kbd>1</kbd>–<kbd>4</kbd> armas · <kbd>C</kbd> centrar. Arrastra el mapa con el ratón o el dedo, y usa la rueda o pellizca para hacer zoom. Tras disparar tienes unos segundos para huir (verás «¡Corre!»). La bazuca hace más daño cuanto más fuerte dispares, la escopeta pierde daño con la distancia y todas las explosiones hacen más daño cuanto más cerca del centro.</p>
+  <p class="help">Teclado: <kbd>←</kbd><kbd>→</kbd> moverse · <kbd>↑</kbd><kbd>↓</kbd> apuntar · mantén <kbd>Espacio</kbd> para cargar y suelta para disparar · <kbd>Enter</kbd> saltar · <kbd>1</kbd>–<kbd>4</kbd> armas · <kbd>C</kbd> centrar. Arrastra el mapa con el ratón o el dedo, y usa la rueda o pellizca para hacer zoom. Cada turno tienes un recorrido limitado (barra «Mov.»; saltar también gasta). Tras disparar tienes unos segundos para huir (verás «¡Corre!»). El viento (flecha y número de 0 a 10) desvía mucho la bazuca y un poco la granada. La bazuca hace más daño cuanto más fuerte dispares, la escopeta pierde daño con la distancia y todas las explosiones hacen más daño cuanto más cerca del centro.</p>
 </div>
 
 <!-- Menú inicial -->
@@ -290,6 +299,14 @@ const WEAP=[
   {id:'escopeta',n:'Escopeta',r:16,dmg:28,run:1.5,hint:'Pierde daño con la distancia'},
   {id:'dinamita',n:'Dinamita',r:72,dmg:75,run:3,  hint:'Suéltala y corre · 4 s'},
 ];
+// Movimiento limitado por turno (en píxeles de recorrido):
+//  MOVE_MAX     lo que puedes andar en cada turno (unos 8 gusanos de largo)
+//  JUMP_COST    lo que gasta cada salto
+//  ESCAPE_MOVE  al disparar, si te queda menos que esto, se rellena hasta aquí para que siempre puedas huir un poco
+const MOVE_MAX=170,JUMP_COST=22,ESCAPE_MOVE=70;
+// Cuánto empuja el viento a cada tipo de proyectil por paso (viento va de -1 a 1).
+// Bazuca: mucho. Granada: poco (y solo en el aire). Dinamita: nada.
+const WIND_FX=[.022,.008,0,0];
 const PEER_PREFIX='gusanazos-v2-'; // prefijo de los códigos de sala en el servidor de PeerJS
 // Con ?local en la dirección, el online funciona entre pestañas del mismo
 // navegador sin Internet (útil para probar).
@@ -488,7 +505,8 @@ function newGame(cfg){
   // vx,vy = velocidad; ground = está apoyado; face = 1 mira a la derecha, -1 a la izquierda;
   // aim = ángulo de apuntado; flash = parpadeo blanco al recibir daño
   G={seed:cfg.seed,worms:cfg.worms.map((w,i)=>({id:i,team:w.team,name:w.name,x:w.x,y:w.y,rx:w.x,ry:w.y,vx:0,vy:0,hp:100,alive:true,drowned:false,face:w.x<W/2?1:-1,aim:.45,ground:true,wacc:0,shownHp:100,flash:0})),
-    proj:[],wind:cfg.wind,turnTeam:cfg.first,next:[0,0],active:0,phase:'aim',timer:TURN_TIME,retreat:0,charge:0,charging:false,weapon:0,settle:0,winner:null};
+    proj:[],wind:cfg.wind,turnTeam:cfg.first,next:[0,0],active:0,phase:'aim',timer:TURN_TIME,retreat:0,charge:0,charging:false,weapon:0,settle:0,winner:null,
+    move:MOVE_MAX,noMoveWarned:false}; // move = recorrido que le queda al gusano activo en este turno
   const first=G.worms.find(w=>w.team===cfg.first);G.active=first.id;G.next[cfg.first]=1;
   parts.length=0;flashes=[];tracers=[];clouds=makeClouds(cfg.seed);hills=makeHills(cfg.seed);stars=makeStars(cfg.seed);weather=[];
   zoom=1;camFree=false;setView();camX=clamp(first.x-VW/2,-20,W+20-VW);camY=clamp(first.y-VH*.6,-160,H+20-VH);
@@ -500,18 +518,20 @@ function newGame(cfg){
 function fullState(){return{w:G.worms.map(w=>[r1(w.x),r1(w.y),w.hp,w.alive?1:0,w.face,w.drowned?1:0]),tt:G.turnTeam,a:G.active,nx:G.next,wind:G.wind,ph:G.phase,win:G.winner}}
 // Aplica ese resumen en el navegador que lo recibe
 function applyFull(s){s.w.forEach((a,i)=>{const w=G.worms[i];w.x=a[0];w.y=a[1];noteHp(w,a[2]);w.hp=a[2];const al=!!a[3];if(w.alive&&!al)deathFx(w,!!a[5]);w.alive=al;w.face=a[4];w.drowned=!!a[5];w.vx=w.vy=0;w.ground=true});
-  G.turnTeam=s.tt;G.active=s.a;G.next=s.nx;G.wind=s.wind;G.phase=s.ph;G.winner=s.win;G.proj=[];G.timer=TURN_TIME;G.charge=0;G.charging=false;G.weapon=0;G.settle=0;G.retreat=0}
+  G.turnTeam=s.tt;G.active=s.a;G.next=s.nx;G.wind=s.wind;G.phase=s.ph;G.winner=s.win;G.proj=[];G.timer=TURN_TIME;G.charge=0;G.charging=false;G.weapon=0;G.settle=0;G.retreat=0;G.move=MOVE_MAX;G.noMoveWarned=false}
 
 // =========================================================================
 // 4. JUGABILIDAD
 // =========================================================================
 // Andar: avanza ~1 píxel por paso. Sube escalones de hasta 6 px, baja
 // cuestas de hasta 4 px y, si no hay suelo, empieza a caer.
+// Cada píxel avanzado gasta 1 de G.move; con 0 ya no se puede andar este turno.
 function walk(w,dir){w.face=dir;w.wacc+=.95;
-  while(w.wacc>=1){w.wacc-=1;const nx=w.x+dir;if(nx<2||nx>W-3)return;
-    if(solidAt(nx,w.y)){let ok=false;for(let k=1;k<=6;k++){if(!solidAt(nx,w.y-k)&&!solidAt(nx,w.y-k-16)){w.y-=k;w.x=nx;ok=true;break}}if(!ok)return}
-    else{if(solidAt(nx,w.y-16))return;w.x=nx;if(!solidAt(w.x,w.y+1)){let k=1;for(;k<=4;k++)if(solidAt(w.x,w.y+1+k)){w.y+=k;break}if(k>4){w.ground=false;w.vx=dir*.6;w.vy=0;return}}}}}
-function jump(w){if(!w.ground)return;w.ground=false;w.vy=-4.3;w.vx=w.face*2.3;snd('jump')}
+  while(w.wacc>=1){w.wacc-=1;if(G.move<=0)return;const nx=w.x+dir;if(nx<2||nx>W-3)return;
+    if(solidAt(nx,w.y)){let ok=false;for(let k=1;k<=6;k++){if(!solidAt(nx,w.y-k)&&!solidAt(nx,w.y-k-16)){w.y-=k;w.x=nx;G.move--;ok=true;break}}if(!ok)return}
+    else{if(solidAt(nx,w.y-16))return;w.x=nx;G.move--;if(!solidAt(w.x,w.y+1)){let k=1;for(;k<=4;k++)if(solidAt(w.x,w.y+1+k)){w.y+=k;break}if(k>4){w.ground=false;w.vx=dir*.6;w.vy=0;return}}}}}
+// Saltar: solo desde el suelo y si queda movimiento suficiente (gasta JUMP_COST)
+function jump(w){if(!w.ground||G.move<JUMP_COST)return;G.move-=JUMP_COST;w.ground=false;w.vy=-4.3;w.vx=w.face*2.3;snd('jump')}
 // Física de un gusano en el aire: gravedad, choque con paredes y techo, aterrizaje
 function physics(w){
   if(w.ground){if(!solidAt(w.x,w.y+1)){if(solidAt(w.x,w.y+2))w.y+=1;else if(solidAt(w.x,w.y+3))w.y+=2;else{w.ground=false;w.vx=0;w.vy=0}}} // si le quitan el suelo, cae
@@ -532,6 +552,7 @@ function aimVec(w){return[Math.cos(w.aim)*w.face,-Math.sin(w.aim)]}
 function fire(power){
   const a=G.worms[G.active],wp=WEAP[G.weapon],[dx,dy]=aimVec(a),ox=a.x+dx*14,oy=a.y-11+dy*14;
   G.phase='fired';G.retreat=wp.run;G.charging=false;G.charge=0;camFree=false;
+  G.move=Math.max(G.move,ESCAPE_MOVE); // siempre te queda un poco para huir
   if(wp.id==='bazuca'||wp.id==='granada'){
     // Bazuca y granada: proyectil con velocidad según la carga
     const sp=3+power*11.5;G.proj.push({type:G.weapon,x:ox,y:oy,vx:dx*sp,vy:dy*sp,t:0,fuse:180,owner:a.id});
@@ -553,7 +574,11 @@ function fire(power){
 function hitWorm(x,y,owner,t){return G.worms.some(w=>w.alive&&!(w.id===owner&&t<14)&&Math.hypot(w.x-x,(w.y-10)-y)<11)}
 // Mueve un proyectil un paso. Devuelve true si hay que quitarlo (explotó o se perdió).
 function stepProj(p){p.t++;
-  if(p.type===0){p.vx+=G.wind*.012;p.vy+=.19}else p.vy+=.2; // la bazuca nota el viento; todos, la gravedad
+  // Viento: empuja horizontalmente según WIND_FX. La granada solo lo nota en el aire
+  // (si está parada en el suelo no la arrastra). Todos caen por la gravedad.
+  const airborne=p.type===0||!solidAt(p.x,p.y+4);
+  if(airborne)p.vx+=G.wind*WIND_FX[p.type];
+  p.vy+=p.type===0?.19:.2;
   const n=Math.max(1,Math.ceil(Math.hypot(p.vx,p.vy)/2));
   for(let s=0;s<n;s++){const nx=p.x+p.vx/n,ny=p.y+p.vy/n;
     if(p.type===0){
@@ -592,7 +617,9 @@ function step(){
   else if(G.phase==='fired')G.retreat-=STEP; // cuenta atrás para huir
   // Se puede mover mientras apunta y durante el tiempo de huida
   const canMove=a.alive&&a.ground&&(G.phase==='aim'||(G.phase==='fired'&&G.retreat>0));
-  if(canMove){if(inp.left)walk(a,-1);else if(inp.right)walk(a,1);if(inp.jump)jump(a)}
+  if(canMove){if(inp.left)walk(a,-1);else if(inp.right)walk(a,1);if(inp.jump)jump(a);
+    // Aviso (una vez por turno) si intentas moverte sin movimiento
+    if((inp.left||inp.right||inp.jump)&&G.move<=0&&!G.noMoveWarned){G.noMoveWarned=true;banner('Sin movimiento este turno',1300)}}
   inp.jump=false;
   if(G.phase==='aim'&&a.alive){
     if(inp.up)a.aim=Math.min(1.5,a.aim+.026);if(inp.down)a.aim=Math.max(-1.5,a.aim-.026);
@@ -614,6 +641,7 @@ function endTurn(){
   const nt=1-G.turnTeam,list=G.worms.filter(w=>w.team===nt);
   for(let k=0;k<list.length;k++){const w=list[(G.next[nt]+k)%list.length];if(w.alive){G.active=w.id;G.next[nt]=(G.next[nt]+k+1)%list.length;break}}
   G.turnTeam=nt;G.phase='aim';G.timer=TURN_TIME;G.wind=Math.round((Math.random()*2-1)*10)/10;G.weapon=0;G.charge=0;G.charging=false;G.settle=0;G.proj=[];G.retreat=0;
+  G.move=MOVE_MAX;G.noMoveWarned=false; // movimiento completo para el siguiente gusano
   if(mode==='online')send({type:'end',s:fullState()});
   announce();
 }
@@ -932,6 +960,9 @@ function drawWorm(w,act){
 function drawLabel(w,act){if(!w.alive)return;const x=w.rx,y=w.ry-38,t=TEAMS[w.team];ctx.font='600 10px Rubik, system-ui, sans-serif';const txt=`${w.name} ${w.hp}`,tw=ctx.measureText(txt).width+10;
   ctx.fillStyle='rgba(20,16,44,.8)';ctx.beginPath();ctx.roundRect(x-tw/2,y-8,tw,15,5);ctx.fill();ctx.fillStyle=t.c;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,x,y);
   if(act&&G.phase==='aim'){const by=y-17+Math.sin(now/180)*3;ctx.fillStyle='#ffc04d';ctx.beginPath();ctx.moveTo(x-6,by-6);ctx.lineTo(x+6,by-6);ctx.lineTo(x,by+2);ctx.fill()}
+  // Mini barra de movimiento bajo la etiqueta del gusano activo
+  if(act&&(G.phase==='aim'||(G.phase==='fired'&&G.retreat>0))){const k=clamp(G.move/MOVE_MAX,0,1),bw=tw;ctx.fillStyle='rgba(20,16,44,.8)';ctx.beginPath();ctx.roundRect(x-bw/2,y+9,bw,5,2.5);ctx.fill();
+    ctx.fillStyle=k<=0?'#ff6b6b':k<.3?'#ffcc4d':'#7ee08a';if(k>0){ctx.beginPath();ctx.roundRect(x-bw/2+1,y+10,(bw-2)*k,3,1.5);ctx.fill()}}
   if(act&&G.phase==='fired'&&G.retreat>0){const s=Math.ceil(G.retreat);ctx.font='800 16px "Baloo 2", Rubik, sans-serif';ctx.lineWidth=4;ctx.strokeStyle='rgba(20,16,44,.9)';ctx.fillStyle='#ffc04d';ctx.strokeText(`¡Corre! ${s}`,x,y-16);ctx.fillText(`¡Corre! ${s}`,x,y-16)}}
 // Proyectiles: cohete (con llama), granada y dinamita (con mecha y cuenta atrás)
 function drawProj(p){
@@ -995,7 +1026,16 @@ function render(dt){
   if(TH.glow){ctx.save();ctx.globalCompositeOperation='lighter';const gg=ctx.createLinearGradient(0,WATER-50,0,WATER);gg.addColorStop(0,'rgba(255,90,20,0)');gg.addColorStop(1,'rgba(255,110,30,.35)');ctx.fillStyle=gg;ctx.fillRect(camX-60,WATER-50,VW+120,50);ctx.restore();if(Math.random()<.15){const bx=camX+Math.random()*VW;P({k:'drop',x:bx,y:wave(bx),vx:0,vy:-1.6,life:20,max:20,c:'#ffd27a',s:2.4,g:.12})}} // la lava brilla y burbujea
   G.worms.forEach(w=>drawLabel(w,w.id===G.active&&G.phase!=='demo'));
   drawWeather(dt);
+  drawWind(dt);
 }
+// Rachas de viento: líneas finas que cruzan la pantalla a la velocidad del viento.
+// Cuanto más fuerte sopla, más rápidas, largas y visibles.
+let gusts=[];
+function drawWind(dt){if(!G||G.phase==='demo')return;const w=G.wind,a=Math.abs(w);if(a<.05){gusts=[];return}
+  while(gusts.length<14)gusts.push({x:camX+Math.random()*VW,y:camY+Math.random()*VH*.8,l:20+Math.random()*40,s:.6+Math.random()*.8});
+  ctx.strokeStyle=`rgba(255,255,255,${.12+a*.28})`;ctx.lineWidth=1.4;ctx.lineCap='round';
+  gusts.forEach(g=>{g.x+=w*g.s*dt*60*7;const len=g.l*(.5+a);ctx.beginPath();ctx.moveTo(g.x,g.y);ctx.lineTo(g.x-Math.sign(w)*len,g.y);ctx.stroke();
+    if(g.x<camX-80||g.x>camX+VW+80){g.x=w>0?camX-40:camX+VW+40;g.y=camY+Math.random()*VH*.8}});ctx.lineCap='butt'}
 
 // =========================================================================
 // 10. INTERFAZ: armas, barra superior, teclado y mando táctil
@@ -1022,7 +1062,12 @@ function hud(){
   if(G.phase==='aim'){const s=Math.max(0,Math.ceil(G.timer));tm.textContent=s;tm.classList.toggle('low',s<=10)}
   else if(G.phase==='fired'&&G.retreat>0){tm.textContent=`¡Corre! ${Math.ceil(G.retreat)}`;tm.classList.add('run')}
   else tm.textContent=G.phase==='over'?'—':'···';
+  // Viento: barra hacia el lado al que sopla y número de 0 a 10 con flecha
   const wv=G.wind;$('wl').style.width=(wv<0?-wv*100:0)+'%';$('wr').style.width=(wv>0?wv*100:0)+'%';
+  const wn=Math.round(Math.abs(wv)*10);$('windTxt').textContent=wn===0?'0':(wv<0?'← ':'')+wn+(wv>0?' →':'');
+  // Movimiento: solo tiene sentido mientras el gusano puede moverse
+  const mb=$('moveBox'),k=clamp(G.move/MOVE_MAX,0,1),active=G.phase==='aim'||(G.phase==='fired'&&G.retreat>0);
+  $('mvb').style.width=(k*100)+'%';mb.classList.toggle('off',!active);mb.classList.toggle('low',k>0&&k<.3);mb.classList.toggle('empty',k<=0);
 }
 let bannerT;function banner(txt,ms=1800){const b=$('banner');b.textContent=txt;b.hidden=false;clearTimeout(bannerT);bannerT=setTimeout(()=>b.hidden=true,ms)}
 // Aviso de inicio de turno
@@ -1085,7 +1130,7 @@ function send(o){if(net)try{net.send(o)}catch(e){}}
 function setNet(state,txt){const n=$('net');n.className='net '+state;$('netTxt').textContent=txt}
 let snapAcc=0;
 function sendSnap(dt){snapAcc+=dt;if(snapAcc<.05)return;snapAcc=0;
-  send({type:'snap',w:G.worms.map(w=>[r1(w.x),r1(w.y),w.hp,w.alive?1:0,w.face,r1(w.aim*100)/100,w.drowned?1:0]),p:G.proj.map(p=>[r1(p.x),r1(p.y),p.type,p.fuse,r1(p.vx),r1(p.vy)]),ph:G.phase,tm:r1(G.timer),rt:r1(G.retreat),a:G.active,ch:r1(G.charge*100)/100,wp:G.weapon})}
+  send({type:'snap',w:G.worms.map(w=>[r1(w.x),r1(w.y),w.hp,w.alive?1:0,w.face,r1(w.aim*100)/100,w.drowned?1:0]),p:G.proj.map(p=>[r1(p.x),r1(p.y),p.type,p.fuse,r1(p.vx),r1(p.vy)]),ph:G.phase,tm:r1(G.timer),rt:r1(G.retreat),mv:Math.round(G.move),a:G.active,ch:r1(G.charge*100)/100,wp:G.weapon})}
 // El rival aplica la "foto" recibida
 function applySnap(s){if(!G||authoritative()||G.phase==='demo')return;
   s.w.forEach((a,i)=>{const w=G.worms[i];w.x=a[0];w.y=a[1];noteHp(w,a[2]);w.hp=a[2];const al=!!a[3];if(w.alive&&!al)deathFx(w,!!a[6]);w.alive=al;w.face=a[4];w.aim=a[5];w.drowned=!!a[6]});
@@ -1093,7 +1138,7 @@ function applySnap(s){if(!G||authoritative()||G.phase==='demo')return;
   // Si acaba de aparecer un proyectil: la cámara lo sigue y suena el disparo
   if(!hadProj&&G.proj.length){camFree=false;syncCamUI();const p=G.proj[0];if(p.type===0){const v=Math.hypot(p.vx,p.vy)||1;muzzleFx(p.x,p.y,p.vx/v,p.vy/v,0);snd('rocket')}else snd('throw')}
   if(G.phase==='aim'&&s.ph==='fired'&&(s.rt||0)>=2.5)banner('¡Corre!',1200);
-  G.phase=s.ph;G.timer=s.tm;G.retreat=s.rt||0;G.active=s.a;G.charge=s.ch;G.weapon=s.wp}
+  G.phase=s.ph;G.timer=s.tm;G.retreat=s.rt||0;G.move=s.mv??G.move;G.active=s.a;G.charge=s.ch;G.weapon=s.wp}
 function onMsg(m){if(!m||typeof m!=='object')return;
   switch(m.type){
     case 'hello':if(me!=='host'||(G&&G.phase!=='demo'))return;names=[myName(),String(m.name||'Rival').slice(0,14)];guestSkin=okSkin(m.skin)?m.skin:randSkin(mySkin);startHostGame();break;
