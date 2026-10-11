@@ -44,14 +44,24 @@ La conexión es directa entre los dos navegadores (P2P con WebRTC). El servidor 
 - **Skins:** en el menú eliges color, sombrero (gorra, vaquero, corona, vikingo, fiesta, pirata, chistera, cascos) y ojos. Tu rival ve tu skin en el online.
 - **Mapas:** Pradera, Desierto, Nieve, Volcán y Golosinas, cada uno con su cielo, texturas, decorados, clima y líquido. Lo elige quien crea la partida (o «Aleatorio»).
 
-| Arma | Cómo funciona |
-|---|---|
-| Bazuca | Se carga la potencia; le afecta el viento |
-| Granada | Rebota y explota a los 3 segundos |
-| Escopeta | Disparo recto e instantáneo, daño pequeño |
-| Dinamita | Se suelta a tus pies; explota a los 4 segundos y hace mucho daño |
+| Arma | Cómo funciona | Tiempo para huir |
+|---|---|---|
+| Bazuca | Se carga la potencia; le afecta el viento. Más fuerza = más daño y cráter más grande | 2 s |
+| Granada | Rebota y explota a los 3 segundos | 2,5 s |
+| Escopeta | Disparo recto e instantáneo; pierde daño con la distancia | 1,5 s |
+| Dinamita | Se suelta a tus pies; explota a los 4 segundos y hace mucho daño | 3 s |
 
-Después de disparar tienes 3 segundos para ponerte a cubierto.
+**Daño:** todas las explosiones hacen más daño cuanto más cerca del centro pilles al gusano, y el impacto directo suma un 10 %. Caer desde muy alto también quita vida.
+
+**Tras disparar** aparece «¡Corre!» con una cuenta atrás: durante ese tiempo puedes moverte y saltar para ponerte a cubierto.
+
+## Sonido
+
+Música y efectos están generados por código (Web Audio), sin archivos. Cada mapa tiene su propia canción. Se activan o silencian con los botones **Música** y **Sonido** de arriba a la derecha.
+
+## Cómo está hecho el código
+
+`index.html` está comentado en español y dividido en secciones numeradas: constantes, terreno, estado, jugabilidad, efectos, audio, cámara, fondo, dibujo, interfaz, menú, red y bucle principal. En el online, el jugador que tiene el turno calcula la física y envía el resultado al otro.
 
 ## Probar el online en un solo ordenador
 
